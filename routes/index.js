@@ -1,4 +1,4 @@
-// api/routes/index.js
+// routes/index.js
 
 const authRoutes = require('./auth');
 const childrenRoutes = require('./children');

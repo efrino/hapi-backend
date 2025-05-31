@@ -1,10 +1,23 @@
 // File: routes/auth.js
 const supabase = require('../lib/supabase');
+const Joi = require('joi');
 
 const authRoutes = [
   {
     method: 'POST',
     path: '/api/auth/register',
+    options: {
+      description: 'Register a new user',
+      notes: 'Creates a new user in Supabase Auth and profiles table',
+      tags: ['api', 'auth'],
+      validate: {
+        payload: Joi.object({
+          email: Joi.string().email().required(),
+          password: Joi.string().min(6).required(),
+          name: Joi.string().min(2).required(),
+        }),
+      },
+    },
     handler: async (request, h) => {
       const { email, password, name } = request.payload;
 
@@ -43,6 +56,17 @@ const authRoutes = [
   {
     method: 'POST',
     path: '/api/auth/login',
+    options: {
+      description: 'User login',
+      notes: 'Authenticates a user and returns session info',
+      tags: ['api', 'auth'],
+      validate: {
+        payload: Joi.object({
+          email: Joi.string().email().required(),
+          password: Joi.string().required(),
+        }),
+      },
+    },
     handler: async (request, h) => {
       const { email, password } = request.payload;
 
