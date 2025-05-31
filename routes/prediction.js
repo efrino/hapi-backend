@@ -23,7 +23,7 @@ const predictionRoutes = [
         },
         handler: async (request, h) => {
             const { sex, age, height, weight } = request.payload;
-
+            
             if (!sex || age == null || height == null || weight == null) {
                 return h.response({ message: 'Semua data harus diisi.' }).code(400);
             }
