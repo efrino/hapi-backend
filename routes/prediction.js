@@ -1,6 +1,7 @@
 // File: routes/prediction.js
 const supabase = require('../lib/supabase');
 const axios = require('axios');
+const flaskApiUrl = process.env.FLASK_API_URL;
 
 const predictionRoutes = [
   {
@@ -15,7 +16,7 @@ const predictionRoutes = [
 
       try {
         // Kirim data ke Flask untuk prediksi
-        const { data: flaskResult } = await axios.post('http://0.0.0.0:5000/predict', {
+        const { data: flaskResult } = await axios.post(`${flaskApiUrl}/predict`, {
           sex,
           age,
           height,

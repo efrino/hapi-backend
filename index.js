@@ -1,7 +1,10 @@
+require('dotenv').config();
 const Hapi = require('@hapi/hapi');
 const allRoutes = require('./routes');
 const authMiddleware = require('./middleware/auth');
 const axios = require('axios');
+
+const flaskApiUrl = process.env.FLASK_API_URL;
 
 const createServer = async () => {
   const server = Hapi.server({
@@ -59,7 +62,7 @@ const createServer = async () => {
     path: '/api/checking-flask',
     handler: async (request, h) => {
       try {
-        const { data } = await axios.get('http://0.0.0.0:5000/');
+        const { data } = await axios.get(flaskApiUrl);
         return h.response({ status: 'success', data }).code(200);
       } catch (err) {
         return h.response({ status: 'error', message: err.message }).code(500);
