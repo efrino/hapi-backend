@@ -72,7 +72,7 @@ const predictionRoutes = [
             const { sex, age, height, weight, child_id } = request.payload;
 
             try {
-                const { data: flaskResult } = await axios.post('http://0.0.0.0:5000/predict', {
+                const { data: flaskResult } = await axios.post(`${flaskApiUrl}/predict`, {
                     sex,
                     age,
                     height,

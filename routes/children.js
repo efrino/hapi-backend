@@ -24,8 +24,8 @@ const childrenRoutes = [
         handler: async (request, h) => {
             const token = request.headers.authorization?.replace('Bearer ', '');
             const { data: userData, error: userError } = await supabase.auth.getUser(token);
-
             if (userError || !userData.user) return h.response({ error: 'Unauthorized' }).code(401);
+
 
             const { name, sex, age } = request.payload;
 
