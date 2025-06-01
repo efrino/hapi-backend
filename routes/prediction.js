@@ -2,7 +2,7 @@
 const supabase = require('../lib/supabase');
 const axios = require('axios');
 const Joi = require('joi');
-const flaskApiUrl = process.env.FLASK_API_URL;
+const prediction = process.env.PREDICTION_URL;
 
 const predictionRoutes = [
     {
@@ -29,7 +29,7 @@ const predictionRoutes = [
             }
 
             try {
-                const { data: flaskResult } = await axios.post(`${flaskApiUrl}/predict`, {
+                const { data: flaskResult } = await axios.post(`${prediction}`, {
                     gender,
                     age,
                     height,
@@ -74,7 +74,7 @@ const predictionRoutes = [
             const { gender, age, height, weight, child_id } = request.payload;
 
             try {
-                const { data: flaskResult } = await axios.post(`${flaskApiUrl}/predict`, {
+                const { data: flaskResult } = await axios.post(`${prediction}`, {
                     gender,
                     age,
                     height,

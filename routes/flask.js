@@ -1,8 +1,7 @@
 require('dotenv').config();
 const axios = require('axios');
 
-const flaskApiUrl = process.env.FLASK_API_URL;
-console.log('FLASK_API_URL:', flaskApiUrl);
+const testing = process.env.STATUS_URL;
 
 const flaskRoutes = [
     {
@@ -60,7 +59,7 @@ const flaskRoutes = [
             notes: 'Mengambil data dari endpoint Flask /status dan mengembalikannya ke klien.',
             handler: async (request, h) => {
                 try {
-                    const { data } = await axios.get(flaskApiUrl);
+                    const { data } = await axios.get(testing);
                     return h.response({
                         status: 'success',
                         message: 'Koneksi sukses ke Flask!',
