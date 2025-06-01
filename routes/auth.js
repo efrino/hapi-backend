@@ -36,12 +36,6 @@ const authRoutes = [
           return h.response({ error: error.message }).code(400);
         }
 
-        if (data.user) {
-          await supabase
-            .from('profiles')
-            .insert({ id: data.user.id, name });
-        }
-
         return h.response({
           message: 'Registration successful',
           user: data.user,
@@ -82,27 +76,11 @@ const authRoutes = [
         }
 
         const user = data.user;
-
-        // Cek apakah profile user sudah ada
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', user.id)
-          .single();
-
-        // Jika belum ada, tambahkan data ke tabel profiles
-        if (!profile && profileError && profileError.code === 'PGRST116') {
-          try {
-            await supabase
-              .from('profiles')
-              .insert({
-                id: user.id,
-                name: user.user_metadata?.name || 'Unnamed',
-              });
-          } catch (insertError) {
-            console.warn('Failed to insert profile on login:', insertError.message);
-          }
+        if (!user) {
+          return h.response({ error: 'User not found' }).code(404);
         }
+
+
 
         return h.response({
           message: 'Login successful',
@@ -115,6 +93,90 @@ const authRoutes = [
       }
     },
   },
+  
 ];
 
-module.exports = authRoutes;
+const authRoutesExtended = [
+  // GET /api/auth/me
+  {
+    method: 'GET',
+    path: '/api/auth/me',
+    options: {
+      description: 'Get current user profile',
+      notes: 'Get user info from token',
+      tags: ['api', 'auth'],
+      validate: {
+        headers: Joi.object({
+          authorization: Joi.string().required(),
+        }).unknown(),
+      },
+    },
+    handler: async (request, h) => {
+      const token = request.headers.authorization?.replace('Bearer ', '');
+      if (!token) return h.response({ error: 'Unauthorized' }).code(401);
+
+      const { data: userData, error: userError } = await supabase.auth.getUser(token);
+      if (userError || !userData.user) return h.response({ error: 'Unauthorized' }).code(401);
+
+      // userData.user mengandung user info termasuk metadata
+      return h.response({ user: userData.user }).code(200);
+    },
+  },
+
+  // PUT /api/auth/me/{id}
+  {
+    method: 'PUT',
+    path: '/api/auth/me/{id}',
+    options: {
+      description: 'Update user profile',
+      notes: 'Update user metadata for authenticated user',
+      tags: ['api', 'auth'],
+      validate: {
+        headers: Joi.object({
+          authorization: Joi.string().required(),
+        }).unknown(),
+        params: Joi.object({
+          id: Joi.string().uuid().required(),
+        }),
+        payload: Joi.object({
+          email: Joi.string().email().optional(), // opsional update email
+          password: Joi.string().min(6).optional(), // opsional update password
+          raw_user_meta_data: Joi.object().optional(), // misal { name: 'new name' }
+        }),
+      },
+    },
+    handler: async (request, h) => {
+      const token = request.headers.authorization?.replace('Bearer ', '');
+      if (!token) return h.response({ error: 'Unauthorized' }).code(401);
+
+      const { data: userData, error: userError } = await supabase.auth.getUser(token);
+      if (userError || !userData.user) return h.response({ error: 'Unauthorized' }).code(401);
+
+      const { id } = request.params;
+
+      // Pastikan user hanya bisa update data dirinya sendiri
+      if (userData.user.id !== id) {
+        return h.response({ error: 'Forbidden' }).code(403);
+      }
+
+      const updatePayload = {};
+      if (request.payload.email) updatePayload.email = request.payload.email;
+      if (request.payload.password) updatePayload.password = request.payload.password;
+      if (request.payload.raw_user_meta_data) updatePayload.data = request.payload.raw_user_meta_data;
+
+      try {
+        // Update user lewat Supabase Auth method
+        const { data, error } = await supabase.auth.updateUser(token, updatePayload);
+        if (error) {
+          return h.response({ error: error.message }).code(400);
+        }
+        return h.response({ message: 'User updated', user: data.user }).code(200);
+      } catch (err) {
+        console.error(err);
+        return h.response({ error: 'Internal server error' }).code(500);
+      }
+    },
+  },
+];
+
+module.exports = [authRoutes, authRoutesExtended];

@@ -14,7 +14,7 @@ const predictionRoutes = [
             tags: ['api', 'prediction'],
             validate: {
                 payload: Joi.object({
-                    sex: Joi.string().valid('male', 'female').required(),
+                    gender: Joi.string().valid('Laki-laki', 'Perempuan').required(),
                     age: Joi.number().required(),
                     height: Joi.number().required(),
                     weight: Joi.number().required(),
@@ -22,16 +22,15 @@ const predictionRoutes = [
             },
         },
         handler: async (request, h) => {
-            const { sex, age, height, weight } = request.payload;
-            
-            if (!sex || age == null || height == null || weight == null) {
+            const { gender, age, height, weight } = request.payload;
+
+            if (!gender || age == null || height == null || weight == null) {
                 return h.response({ message: 'Semua data harus diisi.' }).code(400);
             }
 
             try {
-                // Kirim data ke Flask untuk prediksi
                 const { data: flaskResult } = await axios.post(`${flaskApiUrl}/predict`, {
-                    sex,
+                    gender,
                     age,
                     height,
                     weight,
@@ -44,6 +43,7 @@ const predictionRoutes = [
             }
         },
     },
+
     {
         method: 'POST',
         path: '/api/predictions',
@@ -57,7 +57,7 @@ const predictionRoutes = [
                 }).unknown(),
                 payload: Joi.object({
                     child_id: Joi.string().optional(),
-                    sex: Joi.string().valid('male', 'female').required(),
+                    gender: Joi.string().valid('Laki-laki', 'Perempuan').required(),
                     age: Joi.number().required(),
                     height: Joi.number().required(),
                     weight: Joi.number().required(),
@@ -67,35 +67,54 @@ const predictionRoutes = [
         handler: async (request, h) => {
             const token = request.headers.authorization?.replace('Bearer ', '');
             const { data: userData, error: userError } = await supabase.auth.getUser(token);
-            if (userError || !userData.user) return h.response({ error: 'Unauthorized' }).code(401);
+            if (userError || !userData.user) {
+                return h.response({ error: 'Unauthorized' }).code(401);
+            }
 
-            const { sex, age, height, weight, child_id } = request.payload;
+            const { gender, age, height, weight, child_id } = request.payload;
 
             try {
                 const { data: flaskResult } = await axios.post(`${flaskApiUrl}/predict`, {
-                    sex,
+                    gender,
                     age,
                     height,
                     weight,
                 });
 
-                const { result, score, recommendation } = flaskResult;
+                const {
+                    status,
+                    confidence,
+                    nutrition_recommendation,
+                    additional_info,
+                } = flaskResult;
 
-                const { data, error } = await supabase.from('predictions').insert({
-                    user_id: userData.user.id,
-                    child_id: child_id || null,
-                    sex,
-                    age,
-                    height,
-                    weight,
-                    result,
-                    score,
-                    recommendation,
-                }).select();
+                const { data, error } = await supabase
+                    .from('predictions')
+                    .insert({
+                        user_id: userData.user.id,
+                        child_id: child_id || null,
+                        gender,
+                        age,
+                        height,
+                        weight,
+                        status,
+                        confidence,
+                        nutrition_recommendation,
+                        additional_info,
+                    })
+                    .select()
+                    .single();
 
-                if (error) return h.response({ error: error.message }).code(400);
 
-                return h.response({ message: 'Prediction saved', prediction: data[0] }).code(201);
+                if (error) {
+                    console.error('Error saving to Supabase:', error.message);
+                    return h.response({ error: error.message }).code(400);
+                }
+
+                return h.response({
+                    message: 'Prediction saved',
+                    prediction: data[0],
+                }).code(201);
             } catch (err) {
                 console.error('Prediction save error:', err.message);
                 return h.response({ message: 'Gagal memproses prediksi.' }).code(500);
@@ -130,6 +149,97 @@ const predictionRoutes = [
             return { predictions: data };
         },
     },
+    {
+        method: 'GET',
+        path: '/api/predictions/{id}',
+        options: {
+            description: 'Get prediction detail by ID',
+            notes: 'Returns a single prediction by ID if it belongs to the authenticated user',
+            tags: ['api', 'prediction'],
+            validate: {
+                headers: Joi.object({
+                    authorization: Joi.string().required(),
+                }).unknown(),
+                params: Joi.object({
+                    id: Joi.string().uuid().required(),
+                }),
+            },
+        },
+        handler: async (request, h) => {
+            const token = request.headers.authorization?.replace('Bearer ', '');
+            const { id } = request.params;
+
+            const { data: userData, error: userError } = await supabase.auth.getUser(token);
+            if (userError || !userData.user) {
+                return h.response({ error: 'Unauthorized' }).code(401);
+            }
+
+            const { data, error } = await supabase
+                .from('predictions')
+                .select('*')
+                .eq('id', id)
+                .eq('user_id', userData.user.id)
+                .single();
+
+            if (error || !data) {
+                return h.response({ error: 'Prediction not found or access denied' }).code(404);
+            }
+
+            return h.response(data).code(200);
+        },
+    },
+    {
+        method: 'DELETE',
+        path: '/api/predictions/{id}',
+        options: {
+            description: 'Delete a prediction by ID',
+            notes: 'Deletes a prediction if it belongs to the authenticated user',
+            tags: ['api', 'prediction'],
+            validate: {
+                headers: Joi.object({
+                    authorization: Joi.string().required(),
+                }).unknown(),
+                params: Joi.object({
+                    id: Joi.string().uuid().required(),
+                }),
+            },
+        },
+        handler: async (request, h) => {
+            const token = request.headers.authorization?.replace('Bearer ', '');
+            const { id } = request.params;
+
+            const { data: userData, error: userError } = await supabase.auth.getUser(token);
+            if (userError || !userData.user) {
+                return h.response({ error: 'Unauthorized' }).code(401);
+            }
+
+            // Check ownership first
+            const { data: existing, error: fetchError } = await supabase
+                .from('predictions')
+                .select('id')
+                .eq('id', id)
+                .eq('user_id', userData.user.id)
+                .single();
+
+            if (fetchError || !existing) {
+                return h.response({ error: 'Prediction not found or access denied' }).code(404);
+            }
+
+            // Delete
+            const { error: deleteError } = await supabase
+                .from('predictions')
+                .delete()
+                .eq('id', id)
+                .eq('user_id', userData.user.id);
+
+            if (deleteError) {
+                return h.response({ error: 'Failed to delete prediction' }).code(400);
+            }
+
+            return h.response({ message: 'Prediction deleted successfully' }).code(200);
+        },
+    }
+
 ];
 
 module.exports = predictionRoutes;
