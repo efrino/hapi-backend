@@ -141,7 +141,7 @@ const authRoutesExtended = [
         payload: Joi.object({
           email: Joi.string().email().optional(), // opsional update email
           password: Joi.string().min(6).optional(), // opsional update password
-          raw_user_meta_data: Joi.object().optional(), // misal { name: 'new name' }
+          name: Joi.object().optional(),
         }),
       },
     },
@@ -162,7 +162,7 @@ const authRoutesExtended = [
       const updatePayload = {};
       if (request.payload.email) updatePayload.email = request.payload.email;
       if (request.payload.password) updatePayload.password = request.payload.password;
-      if (request.payload.raw_user_meta_data) updatePayload.data = request.payload.raw_user_meta_data;
+      if (request.payload.name) updatePayload.data = request.payload.name;
 
       try {
         // Update user lewat Supabase Auth method
